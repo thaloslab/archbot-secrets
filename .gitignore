@@ -1,0 +1,43 @@
+# Local .venv is disallowed for this project; keep ignored defensively.
+.venv/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.py,cover
+.python-version
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+build/
+dist/
+site/
+.eggs/
+*.egg
+*.egg-info/
+pip-wheel-metadata/
+
+# Environments
+.env
+.env.*
+.venv*/
+venv/
+env/
+ENV/
+
+# Tooling
+.tox/
+.nox/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+.Spotlight-V100/
+.Trashes/
+._*

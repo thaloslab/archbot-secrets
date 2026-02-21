@@ -1,0 +1,23 @@
+{
+  "version": "2026.1",
+  "identity": "primary-dev-node",
+  "providers": {
+    "openai_pro": {
+      "vault_key": "api.openai.com/pro_key",
+      "env_var": "OPENAI_API_KEY",
+      "type": "upstream",
+      "priority": 1
+    },
+    "openrouter": {
+      "vault_key": "api.openrouter.ai/default",
+      "env_var": "OPENROUTER_API_KEY",
+      "type": "gateway",
+      "endpoint": "https://openrouter.ai/api/v1",
+      "priority": 2
+    },
+    "local_ollama": {
+      "type": "local",
+      "endpoint": "http://localhost:11434"
+    }
+  }
+}
