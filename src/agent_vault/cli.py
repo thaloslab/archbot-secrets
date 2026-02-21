@@ -22,7 +22,7 @@ LOOPBACK_HOSTS = {"127.0.0.1", "localhost", "::1"}
 
 @app.command("init")
 def init_manifest() -> None:
-    """Initialize ~/.ai_agents/manifest.json if missing."""
+    """Initialize ~/.config/ai/ai_agents/manifest.json if missing."""
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
     if not vault_service.init_manifest():
         console.print(f"[yellow]Manifest already exists:[/yellow] {MANIFEST_PATH}")
