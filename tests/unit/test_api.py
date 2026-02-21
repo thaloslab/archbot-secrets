@@ -67,9 +67,11 @@ def test_mutating_endpoints_require_token() -> None:
     service = FakeService()
     client = TestClient(create_app(service, "topsecret"))
 
-    response = client.post("/providers/openai_pro/secret", json={"secret": "abc"})
+    set_secret_response = client.post("/providers/openai_pro/secret", json={"secret": "abc"})
+    track_event_response = client.post("/events/share", json={"event": "manifest_share_link_copied"})
 
-    assert response.status_code == 401
+    assert set_secret_response.status_code == 401
+    assert track_event_response.status_code == 401
 
 
 def test_set_provider_secret_with_token() -> None:
@@ -108,3 +110,26 @@ def test_manifest_roundtrip() -> None:
     assert put_response.status_code == 200
     assert get_response.status_code == 200
     assert get_response.json()["manifest"]["providers"]["p"]["vault_key"] == "api.provider/p"
+
+
+def test_share_metrics_increment() -> None:
+    service = FakeService()
+    client = TestClient(create_app(service, "topsecret"))
+
+    copied_response = client.post(
+        "/events/share",
+        json={"event": "manifest_share_link_copied"},
+        headers={"X-Agent-Vault-Token": "topsecret"},
+    )
+    imported_response = client.post(
+        "/events/share",
+        json={"event": "manifest_share_link_imported"},
+        headers={"X-Agent-Vault-Token": "topsecret"},
+    )
+    metrics_response = client.get("/metrics/share")
+
+    assert copied_response.status_code == 200
+    assert imported_response.status_code == 200
+    assert metrics_response.status_code == 200
+    assert metrics_response.json()["counters"]["manifest_share_link_copied"] == 1
+    assert metrics_response.json()["counters"]["manifest_share_link_imported"] == 1

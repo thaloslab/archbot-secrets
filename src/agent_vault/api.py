@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import secrets
 from collections.abc import Callable
-from typing import Any, TypeVar
+from typing import Any, Literal, Protocol, TypeVar
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse
@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field
 
 from agent_vault.manifest import ManifestError
 from agent_vault.models import Manifest
-from agent_vault.service import AgentVaultService, ProviderStatus, ProviderTestResult, ServiceError
+from agent_vault.service import ProviderStatus, ProviderTestResult, ServiceError
 from agent_vault.vault import VaultError
 
 T = TypeVar("T")
@@ -44,8 +44,25 @@ class ProviderTestResponse(BaseModel):
     failures: list[str]
 
 
-def create_app(service: AgentVaultService, auth_token: str) -> FastAPI:
+class ShareEventRequest(BaseModel):
+    event: Literal["manifest_share_link_copied", "manifest_share_link_imported"]
+
+
+class DashboardService(Protocol):
+    def list_provider_statuses(self) -> list[ProviderStatus]: ...
+    def set_provider_secret(self, provider: str, secret: str) -> None: ...
+    def delete_provider_secret(self, provider: str) -> bool: ...
+    def test_provider(self, provider: str) -> ProviderTestResult: ...
+    def load_manifest(self) -> Manifest: ...
+    def save_manifest(self, manifest: Manifest) -> None: ...
+
+
+def create_app(service: DashboardService, auth_token: str) -> FastAPI:
     app = FastAPI(title="Agent Vault Local API", version="0.1.0")
+    share_counters: dict[str, int] = {
+        "manifest_share_link_copied": 0,
+        "manifest_share_link_imported": 0,
+    }
 
     def require_write_token(request: Request) -> None:
         provided = request.headers.get("X-Agent-Vault-Token")
@@ -107,6 +124,16 @@ def create_app(service: AgentVaultService, auth_token: str) -> FastAPI:
         require_write_token(request)
         run_service_call(lambda: service.save_manifest(payload.manifest))
         return {"status": "updated"}
+
+    @app.post("/events/share")
+    def track_share_event(payload: ShareEventRequest, request: Request) -> dict[str, str]:
+        require_write_token(request)
+        share_counters[payload.event] += 1
+        return {"status": "tracked"}
+
+    @app.get("/metrics/share")
+    def get_share_metrics() -> dict[str, dict[str, int]]:
+        return {"counters": dict(share_counters)}
 
     return app
 
@@ -426,6 +453,12 @@ def _dashboard_html(auth_token: str) -> str:
         font-size: 0.84rem;
       }
 
+      .share-metrics {
+        margin: 0 0 12px;
+        color: var(--text-muted);
+        font-size: 0.8rem;
+      }
+
       @media (max-width: 1040px) {
         .layout {
           grid-template-columns: 1fr;
@@ -497,11 +530,13 @@ def _dashboard_html(auth_token: str) -> str:
           <div class="panel-head">
             <h2 class="panel-title">Manifest</h2>
             <div class="controls">
+              <button id="copy-share-link" type="button">Copy Share Link</button>
               <button id="refresh-manifest" type="button">Reload</button>
               <button class="primary" id="save-manifest" type="button">Save</button>
             </div>
           </div>
           <p class="manifest-note">Only metadata is stored here. Secret values stay in your OS key vault.</p>
+          <p class="share-metrics" id="share-metrics">Share copies: 0 | Share imports: 0</p>
           <textarea id="manifest-json" spellcheck="false" aria-label="Manifest JSON"></textarea>
         </article>
       </section>
@@ -514,6 +549,8 @@ def _dashboard_html(auth_token: str) -> str:
       const providersBody = document.getElementById("providers-body");
       const statusEl = document.getElementById("status");
       const manifestEl = document.getElementById("manifest-json");
+      const copyShareLinkBtn = document.getElementById("copy-share-link");
+      const shareMetricsEl = document.getElementById("share-metrics");
       const refreshProvidersBtn = document.getElementById("refresh-providers");
       const refreshManifestBtn = document.getElementById("refresh-manifest");
       const saveManifestBtn = document.getElementById("save-manifest");
@@ -557,6 +594,82 @@ def _dashboard_html(auth_token: str) -> str:
           throw new Error(body.detail || "Request failed");
         }
         return body;
+      }
+
+      function toBase64Url(value) {
+        return btoa(value).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "");
+      }
+
+      function fromBase64Url(value) {
+        const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
+        const padding = normalized.length % 4 ? "=".repeat(4 - (normalized.length % 4)) : "";
+        return atob(normalized + padding);
+      }
+
+      function encodeManifestShare(manifest) {
+        const bytes = new TextEncoder().encode(JSON.stringify(manifest));
+        let binary = "";
+        for (const byte of bytes) {
+          binary += String.fromCharCode(byte);
+        }
+        return toBase64Url(binary);
+      }
+
+      function decodeManifestShare(payload) {
+        const binary = fromBase64Url(payload);
+        const bytes = Uint8Array.from(binary, char => char.charCodeAt(0));
+        return JSON.parse(new TextDecoder().decode(bytes));
+      }
+
+      async function trackShareEvent(eventName) {
+        await apiRequest("/events/share", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Agent-Vault-Token": authToken
+          },
+          body: JSON.stringify({ event: eventName })
+        });
+      }
+
+      async function loadShareMetrics() {
+        const data = await apiRequest("/metrics/share");
+        const copied = data.counters?.manifest_share_link_copied ?? 0;
+        const imported = data.counters?.manifest_share_link_imported ?? 0;
+        shareMetricsEl.textContent = `Share copies: ${copied} | Share imports: ${imported}`;
+      }
+
+      async function copyManifestShareLink() {
+        const manifest = JSON.parse(manifestEl.value);
+        const shareUrl = new URL(window.location.href);
+        shareUrl.searchParams.set("manifest_share", encodeManifestShare(manifest));
+        const value = shareUrl.toString();
+
+        if (window.navigator.clipboard?.writeText) {
+          await window.navigator.clipboard.writeText(value);
+        } else {
+          window.prompt("Copy this manifest share link", value);
+        }
+
+        await trackShareEvent("manifest_share_link_copied");
+        await loadShareMetrics();
+        setStatus("Share link copied. Send it to a teammate and they can import this manifest draft.", "success");
+      }
+
+      async function applySharedManifestFromUrl() {
+        const url = new URL(window.location.href);
+        const shared = url.searchParams.get("manifest_share");
+        if (!shared) return false;
+
+        const importedManifest = decodeManifestShare(shared);
+        manifestEl.value = JSON.stringify(importedManifest, null, 2);
+        await trackShareEvent("manifest_share_link_imported");
+        await loadShareMetrics();
+
+        url.searchParams.delete("manifest_share");
+        window.history.replaceState({}, "", url.toString());
+        setStatus("Shared manifest loaded. Review and click Save to apply it locally.", "success");
+        return true;
       }
 
       function statusBadge(text, variant) {
@@ -743,6 +856,16 @@ def _dashboard_html(auth_token: str) -> str:
 
       refreshProvidersBtn.addEventListener("click", refreshProviders);
       themeToggleBtn.addEventListener("click", toggleTheme);
+      copyShareLinkBtn.addEventListener(
+        "click",
+        withBusy(copyShareLinkBtn, "Copying...", async () => {
+          try {
+            await copyManifestShareLink();
+          } catch (error) {
+            setStatus(error.message, "error");
+          }
+        })
+      );
 
       darkPreference.addEventListener("change", () => {
         if (!window.localStorage.getItem(THEME_STORAGE_KEY)) {
@@ -783,9 +906,15 @@ def _dashboard_html(auth_token: str) -> str:
       async function init() {
         applyTheme(getInitialTheme());
         try {
-          await loadManifest();
+          const imported = await applySharedManifestFromUrl();
+          if (!imported) {
+            await loadManifest();
+          }
           await loadProviders();
-          setStatus("Dashboard ready", "success");
+          await loadShareMetrics();
+          if (!imported) {
+            setStatus("Dashboard ready", "success");
+          }
         } catch (error) {
           setStatus(error.message, "error");
         }
