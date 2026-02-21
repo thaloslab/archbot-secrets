@@ -39,6 +39,7 @@ The MVP avoids `.env` and plaintext JSON secrets. It uses a pointer model:
 ## Technology Stack
 
 Full details: [`docs/technology-stack.md`](docs/technology-stack.md)
+Secret lifecycle deep dive: [`docs/secret-lifecycle.md`](docs/secret-lifecycle.md)
 
 - Language: Python 3.12
 - CLI framework: Typer
@@ -114,6 +115,7 @@ poetry run agent-vault run --provider openai_pro -- "env | grep OPENAI_API_KEY"
 |-- docs/
 |   |-- architecture.md
 |   |-- api.md
+|   |-- secret-lifecycle.md
 |   |-- technology-stack.md
 |   `-- adr/
 |       `-- 0001-local-first-keyring.md
@@ -157,6 +159,16 @@ flowchart TB
 ```
 
 ## Core MVP Flows
+
+## CLI Commands
+
+| Command | Purpose | Key arguments/options | Example |
+|---|---|---|---|
+| `agent-vault init` | Create default manifest if missing | none | `poetry run agent-vault init` |
+| `agent-vault set-key <provider>` | Store provider secret in OS keyring | `provider` (required) | `poetry run agent-vault set-key openai_pro` |
+| `agent-vault doctor` | Validate manifest, key presence, and endpoint reachability | none | `poetry run agent-vault doctor` |
+| `agent-vault run "<command>"` | Execute command with ephemeral secret injection | `--provider` (optional override) | `poetry run agent-vault run --provider openai_pro -- "openclaw gateway start"` |
+| `agent-vault dashboard` | Start local dashboard/API server on loopback | `--host`, `--port`, `--open-browser`, `--auth-token` | `poetry run agent-vault dashboard --open-browser` |
 
 ### 1) Initialize project state
 
@@ -310,6 +322,8 @@ See reference example: [`examples/manifest.example.json`](examples/manifest.exam
 - Inject secrets only into short-lived child processes
 - Validate required secrets before launch
 - Keep runtime logs redacted
+
+For full flow details, see [`docs/secret-lifecycle.md`](docs/secret-lifecycle.md).
 
 ## Development
 
