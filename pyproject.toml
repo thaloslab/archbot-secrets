@@ -15,7 +15,7 @@ dependencies = [
 ]
 
 [project.scripts]
-agent-vault = "agent_vault.cli:app"
+agent-vault = "agent_vault.cli:main"
 
 [tool.poetry]
 packages = [{ include = "agent_vault", from = "src" }]

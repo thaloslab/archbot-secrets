@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help install test lint format typecheck clean
+.PHONY: help install test lint format typecheck build clean
 
 help:  ## Show this help message.
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
@@ -19,6 +19,9 @@ format: ## Format the codebase using Ruff.
 
 typecheck: ## Run static type checking using MyPy.
 	@poetry run mypy src/ tests/
+
+build: ## Build a wheel (.whl) package.
+	@poetry build -f wheel
 
 clean: ## Clean up generated cache, coverage, and build files.
 	@find . -type d -name "__pycache__" -exec rm -r {} + 2>/dev/null || true

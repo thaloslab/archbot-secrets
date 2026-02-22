@@ -55,31 +55,49 @@ Secret lifecycle deep dive: [`docs/secret-lifecycle.md`](docs/secret-lifecycle.m
 ### Prerequisites
 
 1. Python 3.12+
-2. Poetry
+2. `pip`, `pipx`, or Poetry
 3. OS keychain backend available for `keyring` (Keychain, Credential Manager, or Secret Service)
+
+### Install
+
+Install from local source with `pip`:
+
+```bash
+python -m pip install .
+```
+
+Or install isolated with `pipx`:
+
+```bash
+pipx install .
+```
+
+For development workflows, keep using Poetry:
+
+```bash
+poetry install
+```
 
 ### First run (CLI + dashboard)
 
 ```bash
-poetry install
-poetry run agent-vault init
-poetry run agent-vault set-key openai_pro
-poetry run agent-vault doctor
-poetry run agent-vault dashboard --open-browser
+agent-vault init
+agent-vault set-key openai_pro
+agent-vault doctor
+agent-vault dashboard --open-browser
 ```
 
 ### First run (CLI-only)
 
 ```bash
-poetry install
-poetry run agent-vault init
-poetry run agent-vault set-key openai_pro
-poetry run agent-vault run --provider openai_pro -- "env | grep OPENAI_API_KEY"
+agent-vault init
+agent-vault set-key openai_pro
+agent-vault run --provider openai_pro -- "env | grep OPENAI_API_KEY"
 ```
 
 ### What you should see
 
-1. Manifest at `~/.ai_agents/manifest.json`
+1. Manifest at `~/.config/ai/ai_agents/manifest.json`
 2. Secret persisted in OS vault, not in manifest
 3. `doctor` passes when required keys and endpoints are available
 4. Dashboard at `http://127.0.0.1:8765` with a startup write token
@@ -138,7 +156,7 @@ flowchart TB
     PE["Policy Engine"]
     VS["Vault Service"]
     RN["Runner"]
-    MF["~/.ai_agents/manifest.json (pointers only)"]
+    MF["~/.config/ai/ai_agents/manifest.json (pointers only)"]
     OK["OS Keyring (raw secrets)"]
   end
 
@@ -178,7 +196,7 @@ poetry run agent-vault init
 
 Creates:
 
-- `~/.ai_agents/manifest.json` (if missing)
+- `~/.config/ai/ai_agents/manifest.json` (if missing)
 - Local config directory with safe permissions
 
 ### 2) Save a provider key
@@ -309,7 +327,7 @@ The dashboard page (`GET /`) is a thin client that calls the same endpoints abov
 
 ## Manifest Design
 
-- Manifest location: `~/.ai_agents/manifest.json`
+- Manifest location: `~/.config/ai/ai_agents/manifest.json`
 - Contains metadata only, never raw secret values
 - Secret pointer lives in `vault_key`
 
@@ -330,7 +348,7 @@ For full flow details, see [`docs/secret-lifecycle.md`](docs/secret-lifecycle.md
 ### Setup
 
 ```bash
-poetry config virtualenvs.in-project
+poetry config virtualenvs.in-project false
 # expected: false
 poetry install
 ```

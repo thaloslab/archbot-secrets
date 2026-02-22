@@ -123,5 +123,10 @@ def dashboard(
         raise typer.Exit(code=1) from exc
 
 
-if __name__ == "__main__":
+def main() -> None:
+    """Console-script entrypoint for packaging tools (pip/pipx)."""
     app()
+
+
+if __name__ == "__main__":
+    main()

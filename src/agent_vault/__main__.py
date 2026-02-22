@@ -1,4 +1,4 @@
-from agent_vault.cli import app
+from agent_vault.cli import main
 
 if __name__ == "__main__":
-    app()
+    main()

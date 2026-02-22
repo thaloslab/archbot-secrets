@@ -8,7 +8,7 @@ The tool must be cross-platform, low-dependency, and avoid plaintext secret file
 
 ## Decision
 Store secret values only in OS key vault via `keyring`.
-Store metadata and secret pointers in `~/.ai_agents/manifest.json`.
+Store metadata and secret pointers in `~/.config/ai/ai_agents/manifest.json`.
 
 ## Consequences
 

@@ -11,7 +11,7 @@ This document describes how a secret moves through Agent Vault from initial setu
 
 ## Core Entities
 
-- Manifest: `~/.ai_agents/manifest.json`
+- Manifest: `~/.config/ai/ai_agents/manifest.json`
 - Service namespace in keyring: `agent_vault`
 - Provider metadata fields:
   - `vault_key`: pointer used to read/write secret in keyring
@@ -30,7 +30,7 @@ poetry run agent-vault init
 
 What happens:
 
-1. Creates `~/.ai_agents/manifest.json` if missing.
+1. Creates `~/.config/ai/ai_agents/manifest.json` if missing.
 2. Writes provider metadata only (no raw secrets).
 3. Default manifest includes providers such as `openai_pro`, `openrouter`, and `local_ollama`.
 
